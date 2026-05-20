@@ -59,10 +59,6 @@ async def worker():
 
         path = generate_audio(job.text, job.id)
 
-        print("JOB_ID:", job.id)
-        print("TEXT:", repr(job.text))
-        print("OUTPUT:", path)
-
         job.status = "done"
         job.audio_path = path
 
