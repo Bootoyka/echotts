@@ -153,7 +153,7 @@ Future state:
 ### AI Layer
 
 * Piper TTS (CPU efficient)
-  [https://github.com/rhasspy/piper](https://github.com/rhasspy/piper)
+  [https://github.com/OHF-Voice/piper1-gpl)
 
 ### Storage
 
