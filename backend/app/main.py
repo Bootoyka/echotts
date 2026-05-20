@@ -3,6 +3,7 @@ from backend.app.models import Job
 import uuid
 from backend.app.queue import job_queue
 import asyncio
+from backend.app.tts import generate_audio
 
 app = FastAPI()
 
@@ -56,13 +57,7 @@ async def worker():
         # transition state
         job.status = "processing"
 
-        # FAKE processing (simulate TTS)
-        await asyncio.sleep(1)
-
-        # fake output file
-        path = f"data/audio/{job.id}.txt.wav"
-        with open(path, "w") as f:
-            f.write(job.text)
+        path = generate_audio(job.text, job.id)
 
         job.status = "done"
         job.audio_path = path
