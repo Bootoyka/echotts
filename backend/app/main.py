@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from backend.app.models import Job
 import uuid
+from backend.app.queue import job_queue
+import asyncio
 
 app = FastAPI()
 
@@ -11,7 +13,7 @@ def health():
     return {"status": "ok"}
 
 @app.post("/generate")
-def generate(payload: dict):
+async def generate(payload: dict):
     job_id = str(uuid.uuid4())
 
     job = Job(
@@ -21,6 +23,8 @@ def generate(payload: dict):
     )
 
     jobs[job_id] = job
+
+    await job_queue.put(job_id)
 
     return {
         "job_id": job_id,
@@ -39,3 +43,32 @@ def get_status(job_id: str):
         "status": job.status,
         "audio_path": job.audio_path
     }
+
+async def worker():
+    while True:
+        job_id = await job_queue.get()
+        job = jobs.get(job_id)
+
+        if not job:
+            job_queue.task_done()
+            continue
+
+        # transition state
+        job.status = "processing"
+
+        # FAKE processing (simulate TTS)
+        await asyncio.sleep(1)
+
+        # fake output file
+        path = f"data/audio/{job.id}.txt.wav"
+        with open(path, "w") as f:
+            f.write(job.text)
+
+        job.status = "done"
+        job.audio_path = path
+
+        job_queue.task_done()
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(worker())
