@@ -1,36 +1,40 @@
-from fastapi import FastAPI
-from backend.app.models import Job
 import uuid
-from backend.app.queue import job_queue
 import asyncio
+from fastapi import FastAPI
+from backend.app.models import Job, JobStatus
+from backend.app.queue import job_queue
+from backend.app.schemas import GenerateResponse, GenerateRequest
 from backend.app.tts import generate_audio
+from backend.app.store import load_jobs, save_jobs
+from backend.app.logger import logger
 
 app = FastAPI()
 
-jobs = {}
+jobs = load_jobs()
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-@app.post("/generate")
-async def generate(payload: dict):
+@app.post("/generate", response_model=GenerateResponse)
+async def generate(payload: GenerateRequest):
     job_id = str(uuid.uuid4())
 
     job = Job(
         id=job_id,
-        text=payload["text"],
-        status="queued"
+        text=payload.text,
+        status= JobStatus.QUEUED
     )
 
     jobs[job_id] = job
+    save_jobs(jobs)
 
     await job_queue.put(job_id)
 
-    return {
-        "job_id": job_id,
-        "status": job.status
-    }
+    return GenerateResponse(
+        job_id=job_id,
+        status=job.status.value
+    )
 
 @app.get("/status/{job_id}")
 def get_status(job_id: str):
@@ -41,7 +45,7 @@ def get_status(job_id: str):
 
     return {
         "job_id": job.id,
-        "status": job.status,
+        "status": job.status.value,
         "audio_path": job.audio_path
     }
 
@@ -54,14 +58,16 @@ async def worker():
             job_queue.task_done()
             continue
 
-        # transition state
-        job.status = "processing"
+        try:
+            path = generate_audio(job.text, job.id)
+            job.status = JobStatus.DONE
+            job.audio_path = path
 
-        path = generate_audio(job.text, job.id)
+        except Exception as e:
+            job.status = JobStatus.FAILED
+            logger.exception("Job failed: %s", job.id)
 
-        job.status = "done"
-        job.audio_path = path
-
+        save_jobs(jobs)
         job_queue.task_done()
 
 @app.on_event("startup")
