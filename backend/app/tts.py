@@ -1,10 +1,7 @@
 import subprocess
-from pathlib import Path
+from backend.app.config import settings
 
-MODEL_PATH = "models/model.onnx"
-CONFIG_PATH = "models/model.onnx.json"
-
-AUDIO_DIR = Path("data/audio")
+AUDIO_DIR = settings.AUDIO_DIR
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -13,8 +10,8 @@ def generate_audio(text: str, job_id: str) -> str:
 
     cmd = [
         "piper",
-        "--model", MODEL_PATH,
-        "--config", CONFIG_PATH,
+        "--model", settings.MODEL_PATH,
+        "--config", settings.CONFIG_PATH,
         "--output_file", str(output_path),
     ]
 

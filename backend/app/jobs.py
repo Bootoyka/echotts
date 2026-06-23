@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from pydantic import BaseModel
 
 class JobStatus(str, Enum):
     QUEUED = "queued"
@@ -8,9 +8,8 @@ class JobStatus(str, Enum):
     DONE = "done"
     FAILED = "failed"
 
-@dataclass
-class Job:
+class Job(BaseModel):
     id: str
     text: str
-    status: JobStatus = JobStatus.QUEUED
-    audio_path: Optional[str] = None
+    status: JobStatus
+    audio_path: str | None = None

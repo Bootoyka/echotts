@@ -1,9 +1,16 @@
 from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).parent.parent.parent
+class Settings(BaseSettings):
+    MONGODB_URI: str
+    MONGODB_NAME: str = "echotts_db"
+    MODEL_PATH: str
+    CONFIG_PATH: str
+    AUDIO_DIR: Path=Path(__file__).resolve().parent.parent.parent / "data"/ "audio"
 
-AUDIO_DIR = BASE_DIR / "data" / "audio"
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parent.parent / ".env",
+        env_file_encoding="utf-8",
+    )
 
-MODEL_PATH = BASE_DIR / "backend" / "models" / "model.onnx"
-
-MODEL_CONFIG_PATH = BASE_DIR / "backend" / "models" / "model.onnx.json"
+settings = Settings()
