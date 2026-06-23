@@ -46,21 +46,16 @@ EchoTTS is designed to demonstrate the following engineering competencies:
                           │
                           v
                 ┌────────────────────┐
-                │   TTS Worker       │
+                │    TTS Worker      │
                 │ (Piper / Coqui)    │
                 └─────────┬──────────┘
                           │
-                          v
-                ┌────────────────────┐
-                │  Audio Storage     │
-                │ (local / S3 later) │
-                └─────────┬──────────┘
-                          │
-                          v
-                ┌────────────────────┐
-                │   Database         │
-                │ (SQLite → Postgres)│
-                └────────────────────┘
+         ┌────────────────┴────────────────┐
+         ▼                                 ▼
+┌────────────────────┐            ┌────────────────────┐
+│   Audio Storage    │            │     Database       │
+│ (local / S3 later) │            │  (MongoDB Atlas)   │
+└────────────────────┘            └────────────────────┘
 ```
 
 ---
@@ -161,8 +156,8 @@ Future state:
 
 ### Database
 
-* SQLite (MVP)
-* PostgreSQL (production evolution)
+* MongoDB / MongoDB Atlas (Document-based storage tailored for flexible job metadata)
+* MongoDB Motor (Async driver for Python)
 
 ---
 
@@ -200,8 +195,9 @@ Response:
 
 ```json
 {
+  "job_id": "abc123",
   "status": "done",
-  "audio_url": "/audio/abc123.wav"
+  "audio_path": "/audio/abc123.wav"
 }
 ```
 
