@@ -1,16 +1,22 @@
 import uuid
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from backend.app.models import Job, JobStatus
+from backend.app.jobs import Job, JobStatus
 from backend.app.queue import job_queue
 from backend.app.schemas import GenerateResponse, GenerateRequest
 from backend.app.tts import generate_audio
 from backend.app.store import load_jobs, save_jobs
 from backend.app.logger import logger
 
-app = FastAPI()
-
 jobs = load_jobs()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(worker())
+    yield
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/health")
 def health():
@@ -69,7 +75,3 @@ async def worker():
 
         save_jobs(jobs)
         job_queue.task_done()
-
-@app.on_event("startup")
-async def startup():
-    asyncio.create_task(worker())

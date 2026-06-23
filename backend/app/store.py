@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from backend.app.models import Job, JobStatus
+from backend.app.jobs import Job, JobStatus
 
 DB_PATH = Path("data/jobs.json")
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
