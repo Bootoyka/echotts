@@ -19,7 +19,8 @@ def generate_audio(text: str, job_id: str) -> str:
         cmd,
         input=text,
         capture_output=True,
-        text=True
+        text=True,
+        timeout=120
     )
 
     if result.returncode != 0:
