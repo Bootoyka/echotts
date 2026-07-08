@@ -1,6 +1,7 @@
 .venv
 .idea
 data/audio/*.wav
-models/*
+data/jobs.json
+models/model*
 .env
 archi
