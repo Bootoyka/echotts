@@ -1,6 +1,6 @@
 .venv
 .idea
-data/audio/*.wav
-models/*
+data/audio/
+models/
 .env
 archi
