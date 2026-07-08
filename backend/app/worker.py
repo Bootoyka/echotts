@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from backend.app import worker_crud
 from backend.app.jobs import JobStatus
 from backend.app.logger import logger
@@ -21,12 +22,14 @@ def worker():
 
         try:
             job.status = JobStatus.PROCESSING
+            job.started_at = datetime.now(timezone.utc)
             worker_crud.save_job(job)
 
             path = generate_audio(job.text, job.id)
 
             job.status = JobStatus.DONE
             job.audio_path = path
+            job.completed_at = datetime.now(timezone.utc)
 
             worker_crud.save_job(job)
 
