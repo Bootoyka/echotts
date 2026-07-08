@@ -1,4 +1,6 @@
+from datetime import datetime
 from pydantic import BaseModel
+from backend.app.jobs import JobStatus
 
 
 class GenerateRequest(BaseModel):
@@ -8,10 +10,13 @@ class GenerateRequest(BaseModel):
 
 class GenerateResponse(BaseModel):
     job_id: str
-    status: str
+    status: JobStatus
 
 
-class StatusResponse(BaseModel):
+class JobResponse(BaseModel):
     job_id: str
-    status: str
-    audio_path: str | None = None
+    status: JobStatus
+    audio_url: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
