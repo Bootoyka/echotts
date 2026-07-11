@@ -1,300 +1,318 @@
-# EchoTTS — Minimal AI Text-to-Speech System
+# EchoTTS
+
+> A production-inspired Text-to-Speech inference service built to demonstrate modern AI/ML engineering practices.
 
 ## Overview
 
-EchoTTS is a minimal full-stack AI system designed to convert text into natural speech audio through a modular, production-oriented architecture.
+EchoTTS is a backend-focused AI application that converts text into speech through an asynchronous inference pipeline.
 
-The goal is not to replicate large-scale commercial platforms like ElevenLabs, but to demonstrate a clean, extensible AI engineering system that integrates:
+The objective is not to compete with commercial TTS platforms such as ElevenLabs, but to showcase the engineering practices behind deploying machine learning models as production-ready services.
 
-* Text-to-Speech inference (CPU-first)
+The project emphasizes:
+
+* asynchronous job processing
+* service-oriented architecture
+* containerized deployment
+* clean separation between API and inference
+* reproducible local development
+* extensibility for future models and GPU inference
+
+---
+
+# Features
+
+## Implemented
+
+* Text-to-Speech generation using Piper
 * Asynchronous job processing
-* Full-stack web architecture
-* Future-ready GPU scaling design
+* Redis-backed job queue
+* MongoDB job persistence
+* Dedicated worker process
+* REST API with FastAPI
+* Docker Compose deployment
+* Shared audio storage
+* Job status tracking
+* Environment-based configuration
 
-This project is intentionally constrained to prioritize architecture clarity over model complexity.
+## Planned
+
+* Frontend web interface
+* Audio download endpoint
+* Request validation improvements
+* Health checks
+* Metrics and monitoring
+* CI/CD with GitHub Actions
+* Support for additional TTS models (XTTS, StyleTTS2)
 
 ---
 
-## Core Objectives
-
-EchoTTS is designed to demonstrate the following engineering competencies:
-
-* Full-stack system design (frontend + backend + worker separation)
-* AI inference integration (TTS pipeline)
-* Asynchronous job orchestration
-* Storage and retrieval of generated media
-* Clean deployment strategy using containerization
-* Pathway from CPU local execution → GPU cloud scaling
-
----
-
-## System Architecture
+# Architecture
 
 ```text
-                ┌────────────────────┐
-                │    Frontend UI     │
-                │   (Next.js App)    │
-                └─────────┬──────────┘
-                          │ HTTP
-                          v
-                ┌────────────────────┐
-                │   Backend API      │
-                │   (FastAPI)        │
-                └─────────┬──────────┘
-                          │
-                 Job Queue (in-memory / Redis later)
-                          │
-                          v
-                ┌────────────────────┐
-                │    TTS Worker      │
-                │ (Piper / Coqui)    │
-                └─────────┬──────────┘
-                          │
-         ┌────────────────┴────────────────┐
-         ▼                                 ▼
-┌────────────────────┐            ┌────────────────────┐
-│   Audio Storage    │            │     Database       │
-│ (local / S3 later) │            │  (MongoDB Atlas)   │
-└────────────────────┘            └────────────────────┘
+                  Client
+                     │
+              HTTP Request
+                     │
+                     ▼
+             ┌──────────────┐
+             │  FastAPI API │
+             └──────┬───────┘
+                    │
+          Save Job  │  Enqueue Job
+                    ▼
+             ┌──────────────┐
+             │   MongoDB    │
+             └──────────────┘
+                    ▲
+                    │
+             ┌──────────────┐
+             │    Redis     │
+             └──────┬───────┘
+                    │
+              Dequeue Job
+                    ▼
+             ┌──────────────┐
+             │    Worker    │
+             └──────┬───────┘
+                    │
+            Piper Inference
+                    │
+                    ▼
+           Generated WAV File
 ```
 
----
+The API never performs inference directly.
 
-## Key Design Principles
+Instead, it stores the job, publishes its identifier to Redis, and immediately returns control to the client.
 
-### 1. Separation of Concerns
+The worker independently consumes queued jobs, performs speech synthesis, updates MongoDB, and writes the generated audio to shared storage.
 
-Each system component is isolated:
-
-* API handles requests
-* Worker handles inference
-* Storage handles persistence
-* Frontend handles UX
-
-This enables future horizontal scaling without refactoring core logic.
+This architecture allows the API layer to remain stateless while inference can scale independently.
 
 ---
 
-### 2. Asynchronous Execution Model
+# Technology Stack
 
-TTS generation is treated as a long-running job.
-
-Flow:
-
-1. User submits text
-2. API creates job
-3. Worker processes job asynchronously
-4. Client polls job status
-
-This avoids blocking HTTP requests and prepares the system for GPU workloads.
-
----
-
-### 3. CPU-First Design
-
-Initial implementation is optimized for CPU execution:
-
-* Lightweight TTS model (Piper recommended)
-* No dependency on GPU infrastructure
-* Local execution for fast iteration
+| Layer            | Technology           |
+| ---------------- | -------------------- |
+| API              | FastAPI              |
+| Worker           | Python               |
+| Validation       | Pydantic             |
+| Queue            | Redis                |
+| Database         | MongoDB              |
+| TTS Engine       | Piper                |
+| Containerization | Docker Compose       |
+| Audio Storage    | Shared Docker volume |
 
 ---
 
-### 4. GPU Upgrade Path
-
-The architecture is explicitly designed to migrate workers to GPU instances without modifying the API layer.
-
-Future state:
-
-* Worker container deployed on RunPod / Vast.ai
-* API remains stateless
-* Queue decouples compute layer
-
----
-
-## MVP Features
-
-### Core Features
-
-* Text → Speech generation
-* Job-based processing
-* Audio file output
-* Basic history tracking
-* Simple web interface
-
-### Non-Goals (intentionally excluded)
-
-* Real-time streaming
-* Large-scale voice cloning (initially)
-* Multi-region distributed inference
-* Kubernetes orchestration
-
----
-
-## Suggested Tech Stack
-
-### Frontend
-
-* Next.js (App Router)
-* TailwindCSS
-* Simple fetch-based API client
-
-### Backend
-
-* FastAPI
-* Uvicorn
-* Pydantic
-
-### AI Layer
-
-* Piper TTS (CPU efficient)
-  [https://github.com/OHF-Voice/piper1-gpl)
-
-### Storage
-
-* Local filesystem (`/data/audio`)
-
-### Database
-
-* MongoDB / MongoDB Atlas (Document-based storage tailored for flexible job metadata)
-* MongoDB Motor (Async driver for Python)
-
----
-
-## API Design
-
-### POST /generate
-
-Creates a TTS generation job.
-
-Request:
-
-```json
-{
-  "text": "Hello world",
-  "voice": "default"
-}
-```
-
-Response:
-
-```json
-{
-  "job_id": "abc123",
-  "status": "queued"
-}
-```
-
----
-
-### GET /status/{job_id}
-
-Returns job state and result.
-
-Response:
-
-```json
-{
-  "job_id": "abc123",
-  "status": "done",
-  "audio_path": "/audio/abc123.wav"
-}
-```
-
----
-
-## Worker Design
-
-The worker continuously processes queued jobs:
-
-```python
-while True:
-    job = queue.get()
-
-    audio = tts.generate(job.text)
-
-    path = f"data/audio/{job.id}.wav"
-    save(audio, path)
-
-    db.update(job.id, status="done", audio_path=path)
-```
-
-This abstraction allows future migration to distributed workers.
-
----
-
-## Project Structure
+# Project Structure
 
 ```text
 echotts/
 │
-├── frontend/
-│   ├── app/
-│   ├── components/
-│   └── lib/
-│
 ├── backend/
 │   ├── app/
-│   │   ├── main.py
-│   │   ├── api/
-│   │   ├── services/
-│   │   ├── workers/
-│   │   └── db/
-│   │
-│   └── requirements.txt
+│   ├── Dockerfile.api
+│   ├── Dockerfile.worker
+│   └── requirements/
 │
 ├── data/
 │   └── audio/
 │
+├── models/
+│   └── piper/
+│
 ├── docker-compose.yml
+│
 └── README.md
 ```
 
 ---
 
-## Scaling Roadmap
+# Getting Started
 
-### Phase 1 — Local MVP
+## Requirements
 
-* CPU-based TTS
-* Single machine execution
-* File-based storage
+* Docker
+* Docker Compose v2
 
-### Phase 2 — Productionization
+Clone the repository:
 
-* Redis queue
-* PostgreSQL database
-* Dockerized services
+```bash
+git clone https://github.com/Bootoyka/echotts.git
+cd echotts
+```
 
-### Phase 3 — GPU Offloading
+Create the environment file:
 
-* Worker deployed on GPU cloud provider
-* API remains unchanged
+```bash
+cp backend/.env.example backend/.env
+```
 
-### Phase 4 — Advanced Features
+Start every service:
 
-* Voice cloning (XTTS)
-* Streaming synthesis
-* Multi-user system
-* Rate limiting & billing
+```bash
+docker compose up --build
+```
 
----
+The application starts the following services:
 
-## Engineering Constraints
-
-To maintain system simplicity:
-
-* No Kubernetes in early stages
-* No real-time streaming initially
-* No distributed orchestration complexity
-* No model training pipeline
+* FastAPI API
+* Worker
+* Redis
+* MongoDB
 
 ---
 
-## Learning Outcomes
+# API
 
-This project demonstrates:
+## Generate Speech
 
-* Practical AI system integration
-* Backend async architecture
-* Decoupled compute desig
+```http
+POST /generate
+```
+
+Request
+
+```json
+{
+    "text": "Hello world",
+    "voice": "default"
+}
+```
+
+Response
+
+```json
+{
+    "job_id": "...",
+    "status": "queued"
+}
+```
+
+---
+
+## Check Job Status
+
+```http
+GET /status/{job_id}
+```
+
+Example response
+
+```json
+{
+    "job_id": "...",
+    "status": "done",
+    "audio_url": "/audio/...",
+    "created_at": "...",
+    "started_at": "...",
+    "completed_at": "..."
+}
+```
+
+---
+
+# Processing Pipeline
+
+```text
+POST /generate
+        │
+        ▼
+Store job in MongoDB
+        │
+        ▼
+Publish job ID to Redis
+        │
+        ▼
+Worker consumes queue
+        │
+        ▼
+Run Piper inference
+        │
+        ▼
+Write audio file
+        │
+        ▼
+Update MongoDB
+        │
+        ▼
+Client polls /status/{job_id}
+```
+
+---
+
+# Design Principles
+
+## Asynchronous Processing
+
+Speech synthesis is treated as a background task rather than an HTTP request.
+
+This prevents inference latency from blocking the API and enables horizontal scaling through additional worker instances.
+
+---
+
+## Separation of Responsibilities
+
+Each component has a single responsibility.
+
+* API receives requests.
+* Redis coordinates work.
+* Worker performs inference.
+* MongoDB stores metadata.
+* Shared storage contains generated audio.
+
+This keeps the system modular and simplifies future evolution.
+
+---
+
+## Model Agnostic Design
+
+Although Piper is currently used for inference, the worker architecture is intentionally isolated from the API.
+
+Replacing Piper with another engine (XTTS, StyleTTS2, or a proprietary model) requires changes only inside the worker layer.
+
+---
+
+# Roadmap
+
+## Milestone 1 — MVP
+
+* [x] FastAPI backend
+* [x] Job persistence
+* [x] Redis queue
+* [x] Worker process
+* [x] Piper integration
+* [x] Docker Compose deployment
+
+## Milestone 2 — Production Readiness
+
+* [ ] Audio download endpoint
+* [ ] Improved logging
+* [ ] Health checks
+* [ ] Automated tests
+* [ ] CI/CD pipeline
+* [ ] Metrics
+
+## Milestone 3 — ML Engineering
+
+* [ ] Multiple TTS models
+* [ ] Model selection
+* [ ] Batch inference
+* [ ] Performance benchmarking
+* [ ] GPU worker support
+
+---
+
+# Why This Project?
+
+EchoTTS was built as a portfolio project to demonstrate the engineering required to deploy machine learning models in a production-inspired environment.
+
+Rather than focusing solely on model quality, the project emphasizes system design, reproducibility, service separation, asynchronous processing, and deployment—skills commonly expected of Machine Learning Engineers and AI Engineers.
+
+---
+
+# License
+
+MIT License.
