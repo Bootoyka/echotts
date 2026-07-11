@@ -3,3 +3,56 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  mongodb:
+    image: mongo:8
+    ports:
+      - "27017:27017"
+
+    volumes:
+      - mongodb_data:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.api
+
+    env_file:
+      - backend/.env
+
+    environment:
+      REDIS_HOST: redis
+      MONGODB_URI: mongodb://mongodb:27017
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./data/audio:/app/data/audio
+
+    depends_on:
+      - redis
+      - mongodb
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.worker
+
+    env_file:
+      - backend/.env
+
+    environment:
+      REDIS_HOST: redis
+      MONGODB_URI: mongodb://mongodb:27017
+
+    volumes:
+      - ./models:/app/models:ro
+      - ./data/audio:/app/data/audio
+
+    depends_on:
+      - redis
+      - mongodb
+
+volumes:
+  mongodb_data:
